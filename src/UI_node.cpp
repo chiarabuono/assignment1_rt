@@ -8,18 +8,19 @@
 ros::Publisher pub;
 ros::Subscriber sub;
 
-void moveTurtle(const turtlesim::Pose::ConstPtr& msg, float velocity) {
-	ROS_INFO("Turtle subscriber@[%f, %f, %f]", msg->x, msg->y, msg->theta);
+void moveTurtle(const turtlesim::Pose::ConstPtr& msg, float* velocity) {
+	//ROS_INFO("Turtle subscriber@[%f, %f, %f]", msg->x, msg->y, msg->theta);
 	geometry_msgs::Twist turtleVel;
 	
-    turtleVel.linear.x = velocity;
-    // turtleVel.angular.z = 2.0;
+    turtleVel.linear.x = velocity[0];
+    turtleVel.linear.y = velocity[1];
+    turtleVel.angular.z = velocity[2];
 	
 	pub.publish(turtleVel);
     
 	}
 
-void selectTurtle(ros::NodeHandle& nh, std::string nameTurtle, float velocity) {
+void selectTurtle(ros::NodeHandle& nh, std::string nameTurtle, float* velocity) {
 
     pub = nh.advertise<geometry_msgs::Twist>(nameTurtle + "/cmd_vel", 1);
     sub = nh.subscribe<turtlesim::Pose>(nameTurtle + "/pose", 1, std::bind(moveTurtle, std::placeholders::_1, velocity));
@@ -47,11 +48,9 @@ float selectVelocity() {
     float velocity;
     bool validInput = false;
 
-    std::cout << "\nChoose the velocity of the turtle: ";
+    std::cout << " Choose the velocity of the turtle: ";
 
     while (!validInput) {
-
-        
         std::cin >> velocity;
 
         if (std::cin.fail()) {
@@ -62,7 +61,6 @@ float selectVelocity() {
         } else {
             validInput = true;
         }
-        sleep(1);
     }
     return velocity;
 }
@@ -85,6 +83,8 @@ int main(int argc, char **argv) {
     spawnClient.call(turtle2);
     
     //ros::Rate rate(1);
+
+    float velocityChosen[3] = {0, 0, 0};
     
     while(ros::ok) {
         /* textual interface to retrieve the user command (cin)
@@ -94,7 +94,13 @@ int main(int argc, char **argv) {
         std::string turtleChosen = chooseTurtle();
         if (turtleChosen == "exit") break;
 
-        float velocityChosen = selectVelocity();  
+        for (int i = 0; i < 3; i++) {
+            if (i == 0) printf("\n[linear velocity x]");
+            else if (i == 1) printf("\n[linear velocity y]");
+            else printf("\n[angular velocity z]");
+            velocityChosen[i] = selectVelocity();
+        }
+        //float velocityChosen = selectVelocity();  
 
         /*command sent for 1 second then robot stop, 
         and the user should be able again to insert the command*/
