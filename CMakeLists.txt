@@ -10,6 +10,8 @@ project(assignment1_rt)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  turtlesim
+  geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions

@@ -6,35 +6,52 @@
 #include <string.h>
 
 ros::Publisher pub;
+ros::Subscriber sub;
 
-void selectTurtle(ros::NodeHandle& nh, std::string nameTurtle) {
+void moveTurtle(const turtlesim::Pose::ConstPtr& msg, float velocity) {
+	ROS_INFO("Turtle subscriber@[%f, %f, %f]", msg->x, msg->y, msg->theta);
+	geometry_msgs::Twist turtleVel;
+	
+    turtleVel.linear.x = velocity;
+    // turtleVel.angular.z = 2.0;
+	
+	pub.publish(turtleVel);
+    
+	}
+
+void selectTurtle(ros::NodeHandle& nh, std::string nameTurtle, float velocity) {
 
     pub = nh.advertise<geometry_msgs::Twist>(nameTurtle + "/cmd_vel", 1);
-    //ros::Subscriber sub2 = nh.subscribe(nameTurtle + "/pose", 1, turtleCallback);
-
+    sub = nh.subscribe<turtlesim::Pose>(nameTurtle + "/pose", 1, std::bind(moveTurtle, std::placeholders::_1, velocity));
 
 }
 
 std::string chooseTurtle() {
-    int turtleChosen = 0;
-    std::cout << "\nChoose the turtle you want move (1 or 2): ";
-    std::cin >> turtleChosen;
+    std::string input;
+    std::cout << "\nChoose the turtle you want to move (1 or 2). Press q to exit: ";
+    std::cin >> input;
 
-    while (turtleChosen != 1 && turtleChosen != 2) {
-        std::cout << "\nValue not accetable. Choose between turtle1 (1) or turtle2 (2): ";
-        std::cin >> turtleChosen;
+    if (input == "q") return "exit";
+
+    while (input != "1" && input != "2") {
+        std::cout << "\nValue not acceptable. Choose between turtle1 (1) or turtle2 (2). Press q to exit: ";
+        std::cin >> input;
+        if (input == "q") {
+            return "exit";
+        }
     }
-
-    return "turtle" + std::to_string(turtleChosen); 
+    return "turtle" + input; 
 }
 
-int selectVelocity() {
-    int velocity;
+float selectVelocity() {
+    float velocity;
     bool validInput = false;
+
+    std::cout << "\nChoose the velocity of the turtle: ";
 
     while (!validInput) {
 
-        std::cout << "\nChoose the velocity of the turtle: ";
+        
         std::cin >> velocity;
 
         if (std::cin.fail()) {
@@ -45,6 +62,7 @@ int selectVelocity() {
         } else {
             validInput = true;
         }
+        sleep(1);
     }
     return velocity;
 }
@@ -66,19 +84,26 @@ int main(int argc, char **argv) {
     turtle2.request.name = "turtle2";
     spawnClient.call(turtle2);
     
-    /* textual interface to retrieve the user command (cin)
-    select the robot they want to control (turtle1 or turtle2), 
-    and the velocity of the robot */
+    //ros::Rate rate(1);
     
-    std::string turtleChosen = chooseTurtle();
-    selectTurtle(nh, turtleChosen);
-    int velocityChosen = selectVelocity();
-    
-    /*command sent for 1 second then robot stop, 
-    and the user should be able again to insert the command*/
-    
+    while(ros::ok) {
+        /* textual interface to retrieve the user command (cin)
+        select the robot they want to control (turtle1 or turtle2), 
+        and the velocity of the robot */
 
+        std::string turtleChosen = chooseTurtle();
+        if (turtleChosen == "exit") break;
 
-    ros::spin();
+        float velocityChosen = selectVelocity();  
+
+        /*command sent for 1 second then robot stop, 
+        and the user should be able again to insert the command*/
+        selectTurtle(nh, turtleChosen, velocityChosen);
+        
+        sleep(1);
+        ros::spinOnce();
+
+    }
+    
     return 0;
 }
