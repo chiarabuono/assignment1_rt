@@ -6,15 +6,28 @@
 #include <string.h>
 #include "std_msgs/Float32.h"
 
-float turtle1_pos[3];
-float turtle2_pos[3];
-float turtle1_prev[3];
-float turtle2_prev[3];
-float threshold = 2;
+
+
+struct Turtle {
+    float x;
+    float y;
+    float theta;
+    float x_prev;
+    float y_prev;
+    float theta_prev;
+};
 
 ros::Publisher pub1;
 ros::Publisher pub2;
 ros::Publisher distance_pub;
+
+Turtle turtle1;
+Turtle turtle2;
+// float turtle1_pos[3];
+// float turtle2_pos[3];
+// float turtle1_prev[3];
+// float turtle2_prev[3];
+float threshold = 2;
 
 void stop_turtle(int i) {
     geometry_msgs::Twist turtleVel;
@@ -26,49 +39,32 @@ void stop_turtle(int i) {
     else pub2.publish(turtleVel);
 }
 
-void turtle_pose(const turtlesim::Pose::ConstPtr& msg, int i) {
-    float* turtle_prev;
-    float* turtle_pos;
-    
-    // Set the pointers based on the turtle index
-    if (i == 1) {
-        turtle_prev = turtle1_prev;
-        turtle_pos = turtle1_pos;
-    } else {
-        turtle_prev = turtle2_prev;
-        turtle_pos = turtle2_pos;
-    }
+void turtle_pose(const turtlesim::Pose::ConstPtr& msg, Turtle &turtle) {
+    turtle.x_prev = turtle.x;
+    turtle.y_prev = turtle.y;
+    turtle.theta_prev = turtle.theta;
 
-    // Copy current position to previous
-    std::memcpy(turtle_prev, turtle_pos, sizeof(float) * 3);
-  
-    turtle_pos[0] = msg -> x;
-    turtle_pos[1] = msg -> y;
-    turtle_pos[2] = msg -> theta;
+    turtle.x = msg->x;
+    turtle.y = msg->y;
+    turtle.theta = msg->theta;
 
-
-    /*stops the moving turtle if the position 
-    is too close to the boundaries 
-    (.e.g, x or y > 10.0, x or y < 1.0) */
-    bool boundary_conditions = turtle_pos[0] >= 10.0 || turtle_pos[0] < 1.0 || turtle_pos[1] >= 10.0 || turtle_pos[1] < 1.0;
-    bool going_away_from_boundary = (turtle_prev[0] > turtle_pos[0] && turtle_prev[0] >= 10.0) ||        // right boundary
-                                    (turtle_prev[0] < turtle_pos[0] && turtle_prev[0] < 1.0) ||          // left boundary
-                                    (turtle_prev[1] > turtle_pos[1] && turtle_prev[1] >= 10.0) ||        // down boundary
-                                    (turtle_prev[1] < turtle_pos[1] && turtle_prev[1] < 1.0);            // up boundary
+    bool boundary_conditions = turtle.x >= 10.0 || turtle.x <= 1.0 || 
+                               turtle.y >= 10.0 || turtle.y <= 1.0;
+    bool going_away_from_boundary = (turtle.x_prev >= turtle.x && turtle.x_prev >= 10.0) || // verso destra
+                                    (turtle.x_prev <= turtle.x && turtle.x_prev <= 1.0) || // verso sinistra
+                                    (turtle.y_prev >= turtle.y && turtle.y_prev >= 10.0) || // verso il basso
+                                    (turtle.y_prev <= turtle.y && turtle.y_prev <= 1.0);   // verso l'alto
 
     if (boundary_conditions && !going_away_from_boundary) {
-        stop_turtle(i);
-        
+        stop_turtle(&turtle == &turtle1 ? 1 : 2);
     }
 }
 
-
-
-void check_distance(float* pos1, float* pos2, float* prev1, float* prev2) {
+void check_distance(Turtle t1, Turtle t2) {
 
     //checks the relative distance between turtle1 and turtle2
-    float distance = std::sqrt(std::pow(pos1[0] - pos2[0], 2) + std::pow(pos1[1] - pos2[1], 2));
-    float distance_prev = std::sqrt(std::pow(prev1[0] - prev2[0], 2) + std::pow(prev1[1] - prev2[1], 2));
+    float distance = std::sqrt(std::pow(t1.x - t2.x, 2) + std::pow(t1.y - t2.y, 2));
+    float distance_prev = std::sqrt(std::pow(t1.x_prev- t2.x_prev, 2) + std::pow(t1.y_prev - t2.y_prev, 2));
     
     std_msgs::Float32 distance_msg;
     distance_msg.data = distance;
@@ -90,16 +86,16 @@ int main(int argc, char **argv) {
     ros::Rate rate(10);
 
     
-    ros::Subscriber sub_turtle1 = nh.subscribe<turtlesim::Pose>("turtle1/pose", 1, std::bind(turtle_pose, std::placeholders::_1, 1));
-    ros::Subscriber sub_turtle2 = nh.subscribe<turtlesim::Pose>("turtle2/pose", 1, std::bind(turtle_pose, std::placeholders::_1, 2));
-
+    ros::Subscriber sub_turtle1 = nh.subscribe<turtlesim::Pose>("turtle1/pose", 1, std::bind(turtle_pose, std::placeholders::_1, std::ref(turtle1)));
+    ros::Subscriber sub_turtle2 = nh.subscribe<turtlesim::Pose>("turtle2/pose", 1, std::bind(turtle_pose, std::placeholders::_1, std::ref(turtle2)));
+    
     pub1 = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel", 1);
     pub2 = nh.advertise<geometry_msgs::Twist>("turtle2/cmd_vel", 1);
     distance_pub = nh.advertise<std_msgs::Float32>("turtles_distance", 1);
     while(ros::ok) {
-        check_distance(turtle1_pos, turtle2_pos, turtle1_prev, turtle2_prev);
+        check_distance(turtle1, turtle2);
         ros::spinOnce();
         rate.sleep();
-    }
+     }
     return 0;
 }
