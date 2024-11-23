@@ -7,7 +7,6 @@
 #include "std_msgs/Float32.h"
 
 
-
 struct Turtle {
     float x;
     float y;
@@ -23,10 +22,6 @@ ros::Publisher distance_pub;
 
 Turtle turtle1;
 Turtle turtle2;
-// float turtle1_pos[3];
-// float turtle2_pos[3];
-// float turtle1_prev[3];
-// float turtle2_prev[3];
 float threshold = 2;
 
 void stop_turtle(int i) {
@@ -50,10 +45,10 @@ void turtle_pose(const turtlesim::Pose::ConstPtr& msg, Turtle &turtle) {
 
     bool boundary_conditions = turtle.x >= 10.0 || turtle.x <= 1.0 || 
                                turtle.y >= 10.0 || turtle.y <= 1.0;
-    bool going_away_from_boundary = (turtle.x_prev >= turtle.x && turtle.x_prev >= 10.0) || // verso destra
-                                    (turtle.x_prev <= turtle.x && turtle.x_prev <= 1.0) || // verso sinistra
-                                    (turtle.y_prev >= turtle.y && turtle.y_prev >= 10.0) || // verso il basso
-                                    (turtle.y_prev <= turtle.y && turtle.y_prev <= 1.0);   // verso l'alto
+    bool going_away_from_boundary = (turtle.x_prev >= turtle.x && turtle.x_prev >= 10.0) ||
+                                    (turtle.x_prev <= turtle.x && turtle.x_prev <= 1.0) || 
+                                    (turtle.y_prev >= turtle.y && turtle.y_prev >= 10.0) || 
+                                    (turtle.y_prev <= turtle.y && turtle.y_prev <= 1.0); 
 
     if (boundary_conditions && !going_away_from_boundary) {
         stop_turtle(&turtle == &turtle1 ? 1 : 2);
@@ -83,7 +78,7 @@ int main(int argc, char **argv) {
     //init node
     ros::init(argc, argv, "distance_node");  
 	ros::NodeHandle nh;
-    ros::Rate rate(10);
+    ros::Rate rate(100);
 
     
     ros::Subscriber sub_turtle1 = nh.subscribe<turtlesim::Pose>("turtle1/pose", 1, std::bind(turtle_pose, std::placeholders::_1, std::ref(turtle1)));
@@ -92,6 +87,7 @@ int main(int argc, char **argv) {
     pub1 = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel", 1);
     pub2 = nh.advertise<geometry_msgs::Twist>("turtle2/cmd_vel", 1);
     distance_pub = nh.advertise<std_msgs::Float32>("turtles_distance", 1);
+
     while(ros::ok) {
         check_distance(turtle1, turtle2);
         ros::spinOnce();
