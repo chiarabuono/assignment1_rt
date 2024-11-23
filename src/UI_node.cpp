@@ -6,10 +6,8 @@
 #include <string.h>
 
 ros::Publisher pub;
-ros::Subscriber sub;
 
-void moveTurtle(const turtlesim::Pose::ConstPtr& msg, float* velocity) {
-	//ROS_INFO("Turtle subscriber@[%f, %f, %f]", msg->x, msg->y, msg->theta);
+void moveTurtle(float* velocity) {
 	geometry_msgs::Twist turtleVel;
 	
     turtleVel.linear.x = velocity[0];
@@ -20,12 +18,6 @@ void moveTurtle(const turtlesim::Pose::ConstPtr& msg, float* velocity) {
     
 	}
 
-void selectTurtle(ros::NodeHandle& nh, std::string nameTurtle, float* velocity) {
-
-    pub = nh.advertise<geometry_msgs::Twist>(nameTurtle + "/cmd_vel", 1);
-    sub = nh.subscribe<turtlesim::Pose>(nameTurtle + "/pose", 1, std::bind(moveTurtle, std::placeholders::_1, velocity));
-
-}
 
 std::string chooseTurtle() {
     std::string input;
@@ -57,7 +49,6 @@ float selectVelocity() {
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); 
             std::cout << "\nValue not accetable. Digit a number: ";
-
         } else {
             validInput = true;
         }
@@ -77,12 +68,12 @@ int main(int argc, char **argv) {
     ros::ServiceClient spawnClient =  nh.serviceClient<turtlesim::Spawn>("/spawn");
     turtlesim::Spawn turtle2;
     turtle2.request.x = 2.0;  
-	turtle2.request.y = 1.0;
+	turtle2.request.y = 2.0;
 	turtle2.request.theta = 0.0;
     turtle2.request.name = "turtle2";
     spawnClient.call(turtle2);
     
-    //ros::Rate rate(1);
+    ros::Rate rate(10);
 
     float velocityChosen[3] = {0, 0, 0};
     
@@ -100,13 +91,19 @@ int main(int argc, char **argv) {
             else printf("\n[angular velocity z]");
             velocityChosen[i] = selectVelocity();
         }
-        //float velocityChosen = selectVelocity();  
+
+        pub = nh.advertise<geometry_msgs::Twist>(turtleChosen + "/cmd_vel", 1);
 
         /*command sent for 1 second then robot stop, 
         and the user should be able again to insert the command*/
-        selectTurtle(nh, turtleChosen, velocityChosen);
+        ros::Time start_time = ros::Time::now();
+        while (ros::ok && ros::Time::now() - start_time < ros::Duration(1)) {
+            moveTurtle(velocityChosen);
+            ros::spinOnce();
+            rate.sleep();
+        }
         
-        sleep(1);
+        moveTurtle(new float[3]{0, 0, 0});
         ros::spinOnce();
 
     }
